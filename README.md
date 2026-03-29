@@ -22,6 +22,15 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Smarter Scheduling
+
+The scheduler now includes lightweight algorithmic intelligence to improve day-to-day planning:
+
+- Sorts tasks by explicit `HH:MM` scheduled time, then priority.
+- Filters tasks by completion status and by pet name.
+- Supports recurring tasks (`daily` and `weekly`) by auto-creating the next occurrence when completed.
+- Detects same-time scheduling conflicts and returns warnings instead of crashing.
+
 ## Getting started
 
 ### Setup

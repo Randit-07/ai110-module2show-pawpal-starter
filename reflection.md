@@ -92,9 +92,11 @@ classDiagram
 **b. Design changes**
 
 - ## Did your design change during implementation?
-  -
+  - Yes. I made a few structural adjustments after turning the UML into code.
 - ## If yes, describe at least one change and why you made it.
-  -
+  - I made the UML relationships explicit in code by adding `pet_profile` and `constraints` references to `OwnerProfile`, and by giving `Scheduler` a `task_repository` (plus optional default constraints) through its constructor. This keeps the object graph clear and matches the diagram's one-to-one associations instead of relying only on method parameters.
+  - I also added a `task_index` dictionary inside `TaskRepository` keyed by `task_id`. Even in a skeleton, this highlights an implementation direction that avoids repeated linear scans for update/remove operations as task count grows.
+  - I added an optional `plan` reference in `PlanExplainer` so the "explains DailyPlan" relationship can be represented either as a passed argument or as a held association.
 
 ---
 
@@ -109,6 +111,9 @@ classDiagram
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
+
+- The scheduler currently uses lightweight conflict detection by warning only when two tasks share the exact same `HH:MM` start time, rather than calculating full overlap windows using duration.
+- This tradeoff keeps the algorithm easy to understand and fast for a student project while still catching the most obvious double-bookings; deeper overlap checks can be added later if needed.
 
 ---
 
