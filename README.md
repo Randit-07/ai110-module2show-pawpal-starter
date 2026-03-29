@@ -22,15 +22,6 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
-## Smarter Scheduling
-
-The scheduler now includes lightweight algorithmic intelligence to improve day-to-day planning:
-
-- Sorts tasks by explicit `HH:MM` scheduled time, then priority.
-- Filters tasks by completion status and by pet name.
-- Supports recurring tasks (`daily` and `weekly`) by auto-creating the next occurrence when completed.
-- Detects same-time scheduling conflicts and returns warnings instead of crashing.
-
 ## Getting started
 
 ### Setup
@@ -50,3 +41,21 @@ pip install -r requirements.txt
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+## Testing PawPal+
+
+Run the automated test suite with:
+
+```bash
+python -m pytest
+```
+
+Current tests in `tests/test_pawpal.py` cover:
+
+- Sorting correctness (tasks are ordered chronologically by `HH:MM`).
+- Recurrence logic (completing a daily task creates the next day occurrence).
+- Conflict detection (duplicate scheduled times generate warnings).
+- Filtering behavior (by pet name and completion status).
+- Edge case handling (owner with pets but no tasks).
+
+Confidence Level: ★★★★☆ (4/5)
