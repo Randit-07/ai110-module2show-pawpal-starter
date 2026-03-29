@@ -13,80 +13,59 @@
 ```mermaid
 classDiagram
   class OwnerProfile {
-    +str owner_id
-    +str name
-    +int available_minutes
-    +dict preferences
-    +set_availability(minutes)
-    +set_preference(key, value)
-    +get_preference(key)
+    +owner_id: str
+    +name: str
+    +available_minutes: int
+    +preferences: dict
+    +pet_profiles: List[PetProfile]
+    +add_pet(pet)
+    +remove_pet(pet_id)
+    +get_all_tasks()
   }
 
   class PetProfile {
-    +str pet_id
-    +str name
-    +str species
-    +int age_years
-    +dict care_notes
-    +update_care_note(key, value)
-    +get_care_note(key)
-  }
-
-  class PetTask {
-    +str task_id
-    +str title
-    +str category
-    +int duration_minutes
-    +int priority
-    +str due_window
-    +bool completed
-    +mark_complete()
-    +is_due_now(current_time)
-  }
-
-  class TaskRepository {
-    +list tasks
+    +pet_id: str
+    +name: str
+    +species: str
+    +age_years: int
+    +tasks: List[PetTask]
     +add_task(task)
-    +update_task(task_id, updates)
     +remove_task(task_id)
-    +get_tasks_by_category(category)
     +get_pending_tasks()
   }
 
-  class ConstraintSet {
-    +int max_minutes
-    +list preferred_categories
-    +list blocked_time_windows
-    +bool must_include_medication
-    +is_task_allowed(task)
+  class PetTask {
+    +task_id: str
+    +title: str
+    +scheduled_time: str
+    +frequency: str
+    +due_date: str
+    +completed: bool
+    +mark_complete()
+    +create_next_occurrence()
   }
 
-  class DailyPlan {
-    +str date
-    +list scheduled_items
-    +int total_minutes
-    +add_item(task, start_time)
-    +fits_time_budget(max_minutes)
+  class TaskRepository {
+    +tasks: list
+    +task_index: dict
+    +add_task(task)
+    +mark_task_complete(task_id)
+    +get_pending_tasks()
   }
 
   class Scheduler {
-    +rank_tasks(tasks, owner, pet)
-    +select_tasks(tasks, constraints)
-    +build_plan(owner, pet, tasks, constraints) DailyPlan
+    +sort_by_time(tasks)
+    +filter_tasks(tasks, completed)
+    +filter_owner_tasks(owner, pet_name, completed)
+    +detect_time_conflicts(tasks)
+    +mark_task_complete(task_id, owner)
+    +build_plan(owner, pet, tasks, constraints)
   }
 
-  class PlanExplainer {
-    +explain_task_choice(task, constraints)
-    +explain_plan(plan)
-  }
-
-  OwnerProfile "1" --> "1" PetProfile : cares for
-  OwnerProfile "1" --> "1" ConstraintSet : provides
-  TaskRepository "1" --> "many" PetTask : stores
-  Scheduler "1" --> "1" TaskRepository : reads tasks
-  Scheduler "1" --> "1" ConstraintSet : applies
-  Scheduler "1" --> "1" DailyPlan : produces
-  PlanExplainer "1" --> "1" DailyPlan : explains
+  OwnerProfile "1" --> "*" PetProfile : owns
+  PetProfile "1" --> "*" PetTask : contains
+  Scheduler "1" --> "1" TaskRepository : uses
+  Scheduler "1" --> "1" DailyPlan : outputs
 ```
 
 **b. Design changes**
@@ -107,6 +86,9 @@ classDiagram
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+- The scheduler considers total available minutes, task priority, owner category boosts, blocked windows, preferred categories, completion status, and scheduled time ordering.
+- I prioritized constraints that directly impact day-to-day usability for a pet owner: first feasibility (time budget), then urgency (priority), then organization/readability (chronological ordering and conflict visibility).
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
@@ -124,10 +106,16 @@ classDiagram
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+- I used Copilot to scaffold class implementations, propose algorithm increments (sorting/filtering/recurrence/conflict detection), and generate/update tests as features evolved.
+- The most effective prompts were specific and constraint-driven, for example: "add recurrence when task is marked complete" and "write tests that verify chronological ordering and same-time conflict warnings."
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+
+- I rejected a more compact but less readable conflict-detection rewrite that used dense grouping logic. I kept the explicit dictionary-based version because it was easier to reason about and debug.
+- I verified decisions by running the CLI demo and `pytest`, then checking whether warnings and outputs matched expected behavior in realistic multi-pet scenarios.
 
 ---
 
@@ -138,10 +126,16 @@ classDiagram
 - What behaviors did you test?
 - Why were these tests important?
 
+- I tested chronological sorting, filtering by pet/status, daily recurrence generation after completion, conflict detection for duplicate times, and empty-task edge cases.
+- These tests were important because they cover both user-visible behavior and algorithmic correctness for the "smart scheduler" features.
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
+
+- I am confident at a 4/5 level given passing tests and manual CLI/UI validation.
+- Next edge cases: invalid time formats, three or more conflicts at one time, weekly recurrence rollover across months, and overlap detection based on duration (not just exact start time).
 
 ---
 
@@ -151,10 +145,21 @@ classDiagram
 
 - What part of this project are you most satisfied with?
 
+- I am most satisfied with separating responsibilities cleanly across `TaskRepository`, `Scheduler`, and `PlanExplainer`, then exposing those same capabilities in both CLI and Streamlit.
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+- In another iteration, I would add overlap-aware conflict detection, stronger validation around time/date input, and fuller task-editing controls in the Streamlit UI.
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+- The key takeaway is that AI is strongest when treated as a rapid implementation partner, but the human still needs to act as lead architect by setting constraints, evaluating tradeoffs, and deciding when readability should win over compactness.
+
+## AI Workflow Note
+
+- Using separate chat sessions by phase (core classes, UI wiring, algorithms, testing, and final polish) reduced context switching and helped keep each prompt focused on one objective.
+- The most effective Copilot features for this project were Agent Mode for multi-step code edits, Ask mode for algorithm clarification, and test generation for fast verification loops.

@@ -22,6 +22,26 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Features
+
+- Multi-pet owner profile with persistent in-session app state using Streamlit session storage.
+- Task creation with priority, category, duration, due window, explicit `HH:MM` scheduled time, and recurrence (`none`, `daily`, `weekly`).
+- Scheduler sorting by chronological time and then priority.
+- Filtering by pet and completion status.
+- Lightweight conflict warnings when two tasks share the same scheduled time.
+- Recurring-task automation where completing a daily/weekly task generates the next occurrence.
+- Daily plan generation with time budgeting and table-based schedule display.
+
+## Final UML
+
+The final architecture diagram is stored in `uml_final.mmd` and validated with Mermaid tools.
+
+## 📸 Demo
+
+<a href="/course_images/ai110/pawpal_final_ui.png" target="_blank"><img src='/course_images/ai110/pawpal_final_ui.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+
+Replace `pawpal_final_ui.png` with your uploaded screenshot file name when available.
+
 ## Getting started
 
 ### Setup

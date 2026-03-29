@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 from pawpal_system import ConstraintSet, OwnerProfile, PetProfile, PetTask, Scheduler, TaskRepository
 
 
@@ -29,6 +30,14 @@ def build_scheduler(owner: OwnerProfile) -> Scheduler:
     return Scheduler(task_repository=repository)
 
 
+def find_pet_for_task(owner: OwnerProfile, task: PetTask) -> str:
+    """Return the pet name associated with a task ID."""
+    for pet in owner.pet_profiles:
+        if any(existing.task_id == task.task_id for existing in pet.tasks):
+            return pet.name
+    return "Unknown"
+
+
 initialize_state()
 owner: OwnerProfile = st.session_state["owner"]
 
@@ -38,12 +47,13 @@ st.title("🐾 PawPal+")
 
 st.markdown(
     """
-Welcome to the PawPal+ starter app.
+Welcome to PawPal+, a smart pet-care planner.
 
-This file is intentionally thin. It gives you a working Streamlit app so you can start quickly,
-but **it does not implement the project logic**. Your job is to design the system and build it.
-
-Use this app as your interactive demo once your backend classes/functions exist.
+This app now connects directly to the project logic in `pawpal_system.py` so you can:
+- manage pets and tasks,
+- sort and filter tasks,
+- detect scheduling conflicts,
+- and generate a daily plan.
 """
 )
 
@@ -139,6 +149,8 @@ else:
             ["exercise", "feeding", "medication", "enrichment", "grooming", "other"],
         )
         due_window = st.selectbox("Time window", ["morning", "afternoon", "evening", "night", "any"])
+        scheduled_time = st.text_input("Scheduled time (HH:MM)", value="09:00")
+        frequency = st.selectbox("Frequency", ["none", "daily", "weekly"])
         duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
         priority_label = st.selectbox("Priority", ["low", "medium", "high"], index=2)
         add_task_submitted = st.form_submit_button("Add task")
@@ -149,36 +161,70 @@ else:
         else:
             selected_pet = pet_options[selected_pet_label]
             task_id = f"task-{st.session_state['task_counter']:03d}"
-            st.session_state["task_counter"] += 1
-            selected_pet.add_task(
-                PetTask(
-                    task_id=task_id,
-                    title=task_title.strip(),
-                    category=category,
-                    duration_minutes=int(duration),
-                    priority=priority_label_to_score(priority_label),
-                    due_window=due_window,
+            try:
+                datetime.strptime(scheduled_time, "%H:%M")
+            except ValueError:
+                st.error("Scheduled time must use HH:MM (24-hour) format, for example 09:30.")
+            else:
+                st.session_state["task_counter"] += 1
+                selected_pet.add_task(
+                    PetTask(
+                        task_id=task_id,
+                        title=task_title.strip(),
+                        category=category,
+                        duration_minutes=int(duration),
+                        priority=priority_label_to_score(priority_label),
+                        due_window=due_window,
+                        scheduled_time=scheduled_time,
+                        frequency=frequency,
+                    )
                 )
-            )
-            st.success(f"Added task '{task_title.strip()}' to {selected_pet.name}.")
+                st.success(f"Added task '{task_title.strip()}' to {selected_pet.name}.")
 
 all_tasks = owner.get_all_tasks()
 if all_tasks:
     st.markdown("### Current tasks")
+    scheduler = build_scheduler(owner)
+    selected_pet_filter = st.selectbox(
+        "Filter tasks by pet",
+        ["All pets"] + [pet.name for pet in owner.pet_profiles],
+    )
+    selected_status_filter = st.selectbox("Filter by status", ["all", "pending", "completed"])
+
+    completed_filter = None
+    if selected_status_filter == "pending":
+        completed_filter = False
+    elif selected_status_filter == "completed":
+        completed_filter = True
+
+    filtered_tasks = scheduler.filter_owner_tasks(
+        owner,
+        pet_name=None if selected_pet_filter == "All pets" else selected_pet_filter,
+        completed=completed_filter,
+    )
+    sorted_tasks = scheduler.sort_by_time(filtered_tasks)
+    conflicts = scheduler.detect_time_conflicts(sorted_tasks)
+
+    if conflicts:
+        st.warning("Scheduling conflicts detected:")
+        for warning in conflicts:
+            st.warning(warning)
+
     task_rows = []
-    for pet in owner.pet_profiles:
-        for task in pet.tasks:
-            task_rows.append(
-                {
-                    "pet": pet.name,
-                    "title": task.title,
-                    "category": task.category,
-                    "due_window": task.due_window,
-                    "duration_minutes": task.duration_minutes,
-                    "priority": task.priority,
-                    "completed": task.completed,
-                }
-            )
+    for task in sorted_tasks:
+        task_rows.append(
+            {
+                "time": task.scheduled_time,
+                "pet": find_pet_for_task(owner, task),
+                "title": task.title,
+                "category": task.category,
+                "frequency": task.frequency,
+                "due_window": task.due_window,
+                "duration_minutes": task.duration_minutes,
+                "priority": task.priority,
+                "completed": task.completed,
+            }
+        )
     st.table(task_rows)
 else:
     st.info("No tasks yet. Add one above.")
@@ -197,11 +243,17 @@ if st.button("Generate schedule"):
         scheduler = build_scheduler(owner)
         constraints = ConstraintSet(max_minutes=owner.available_minutes)
         primary_pet = owner.pet_profiles[0]
-        plan = scheduler.build_plan(owner, primary_pet, scheduler.get_owner_tasks(owner), constraints)
+        owner_tasks = scheduler.sort_by_time(scheduler.get_owner_tasks(owner))
+        conflicts = scheduler.detect_time_conflicts(owner_tasks)
+        plan = scheduler.build_plan(owner, primary_pet, owner_tasks, constraints)
 
         if not plan.scheduled_items:
             st.info("No tasks could be scheduled under current constraints.")
         else:
             st.success("Today's Schedule")
+            if conflicts:
+                st.warning("Potential conflicts were found in your task list:")
+                for warning in conflicts:
+                    st.warning(warning)
             st.caption(f"Total planned minutes: {plan.total_minutes}")
             st.table(plan.scheduled_items)

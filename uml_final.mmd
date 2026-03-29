@@ -1,0 +1,104 @@
+classDiagram
+    class OwnerProfile {
+        -owner_id: str
+        -name: str
+        -available_minutes: int
+        -preferences: Dict[str, Any]
+        -pet_profile: PetProfile | None
+        -pet_profiles: List[PetProfile]
+        -constraints: ConstraintSet | None
+        +set_availability(minutes: int): void
+        +set_preference(key: str, value: Any): void
+        +get_preference(key: str): Any
+        +add_pet(pet: PetProfile): void
+        +remove_pet(pet_id: str): void
+        +get_all_tasks(): List[PetTask]
+    }
+
+    class PetProfile {
+        -pet_id: str
+        -name: str
+        -species: str
+        -age_years: int
+        -care_notes: Dict[str, Any]
+        -tasks: List[PetTask]
+        +update_care_note(key: str, value: Any): void
+        +get_care_note(key: str): Any
+        +add_task(task: PetTask): void
+        +remove_task(task_id: str): void
+        +get_pending_tasks(): List[PetTask]
+    }
+
+    class PetTask {
+        -task_id: str
+        -title: str
+        -category: str
+        -duration_minutes: int
+        -priority: int
+        -due_window: str
+        -scheduled_time: str
+        -frequency: str
+        -due_date: str
+        -completed: bool
+        +mark_complete(): void
+        +create_next_occurrence(): PetTask | None
+        +is_due_now(current_time: str): bool
+    }
+
+    class TaskRepository {
+        -tasks: List[PetTask]
+        -task_index: Dict[str, PetTask]
+        +add_task(task: PetTask): void
+        +update_task(task_id: str, updates: Dict[str, Any]): void
+        +remove_task(task_id: str): void
+        +get_tasks_by_category(category: str): List[PetTask]
+        +get_pending_tasks(): List[PetTask]
+        +mark_task_complete(task_id: str): PetTask | None
+    }
+
+    class ConstraintSet {
+        -max_minutes: int
+        -preferred_categories: List[str]
+        -blocked_time_windows: List[str]
+        -must_include_medication: bool
+        +is_task_allowed(task: PetTask): bool
+    }
+
+    class Scheduler {
+        -task_repository: TaskRepository
+        -constraints: ConstraintSet | None
+        +rank_tasks(tasks: List[PetTask], owner: OwnerProfile, pet: PetProfile): List[PetTask]
+        +sort_by_time(tasks: List[PetTask]): List[PetTask]
+        +filter_tasks(tasks: List[PetTask], completed: bool | None): List[PetTask]
+        +filter_owner_tasks(owner: OwnerProfile, pet_name: str | None, completed: bool | None): List[PetTask]
+        +detect_time_conflicts(tasks: List[PetTask]): List[str]
+        +mark_task_complete(task_id: str, owner: OwnerProfile | None): PetTask | None
+        +get_owner_tasks(owner: OwnerProfile, include_completed: bool): List[PetTask]
+        +get_all_tasks(include_completed: bool): List[PetTask]
+        +select_tasks(tasks: List[PetTask], constraints: ConstraintSet): List[PetTask]
+        +build_plan(owner: OwnerProfile, pet: PetProfile, tasks: List[PetTask], constraints: ConstraintSet): DailyPlan
+    }
+
+    class DailyPlan {
+        -date: str
+        -scheduled_items: List[Dict[str, Any]]
+        -total_minutes: int
+        +add_item(task: PetTask, start_time: str): void
+        +fits_time_budget(max_minutes: int): bool
+    }
+
+    class PlanExplainer {
+        -plan: DailyPlan | None
+        +explain_task_choice(task: PetTask, constraints: ConstraintSet): str
+        +explain_plan(plan: DailyPlan): str
+    }
+
+    OwnerProfile "1" --> "*" PetProfile
+    OwnerProfile "1" --> "0..1" ConstraintSet
+    PetProfile "1" --> "*" PetTask
+    TaskRepository "1" --> "*" PetTask
+    Scheduler "1" --> "1" TaskRepository
+    Scheduler "0..1" --> "1" ConstraintSet
+    Scheduler "1" --> "1" DailyPlan
+    DailyPlan "1" --> "*" PetTask
+    PlanExplainer "0..1" --> "1" DailyPlan
